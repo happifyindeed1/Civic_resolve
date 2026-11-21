@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CivicResolve | AI-Powered Citizen Grievance Management</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#ecfdf5',
+              100: '#d1fae5',
+              200: '#a7f3d0',
+              300: '#6ee7b7',
+              400: '#34d399',
+              500: '#10b981',
+              600: '#059669',
+              700: '#047857',
+              800: '#065f46',
+              900: '#064e3b',
+            }
+          },
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Leaflet CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-800 antialiased flex flex-col">
+
+  <!-- ================= TOP MUNICIPAL NAV ================= -->
+  <header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        
+        <!-- Brand Logo -->
+        <div class="flex items-center space-x-3 cursor-pointer" onclick="switchTab('feed')">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-700 via-brand-600 to-emerald-400 flex items-center justify-center text-white shadow-md shadow-brand-600/20">
+            <i data-lucide="shield-alert" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <div class="flex items-center space-x-2">
+              <span class="text-xl font-extrabold tracking-tight text-slate-900">Civic<span class="text-brand-600">Resolve</span></span>
+              <span class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-brand-100 text-brand-800 rounded-full border border-brand-200">AI Triage</span>
+            </div>
+            <p class="text-[11px] text-slate-500 font-medium">Smart Municipal Grievance & Dispatch</p>
+          </div>
+        </div>
+
+        <!-- Center Navigation Tabs (Strictly Role-Filtered) -->
+        <nav id="mainNavTabs" class="hidden md:flex items-center space-x-1 bg-slate-100 p-1 rounded-xl border border-slate-200/80">
+          <button id="nav-tab-feed" onclick="switchTab('feed')" class="flex items-center space-x-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all text-slate-700 hover:text-slate-900 bg-white shadow-sm">
+            <i data-lucide="layout-grid" class="w-4 h-4 text-brand-600"></i>
+            <span>Citizen Feed</span>
+          </button>
+          <button id="nav-tab-map" onclick="switchTab('map')" class="flex items-center space-x-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all text-slate-600 hover:text-slate-900">
+            <i data-lucide="map-pin" class="w-4 h-4 text-slate-500"></i>
+            <span>City Map Explorer</span>
+          </button>
+          <!-- Admin Command Hub: ONLY visible to City Admin -->
+          <button id="nav-tab-admin" onclick="switchTab('admin')" class="hidden items-center space-x-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all text-slate-600 hover:text-slate-900">
+            <i data-lucide="bar-chart-3" class="w-4 h-4 text-indigo-600"></i>
+            <span>Admin Command Hub</span>
+            <span id="badge-critical-count" class="px-1.5 py-0.2 text-[10px] font-bold bg-rose-500 text-white rounded-full">2</span>
+          </button>
+          <!-- Field Officer Dispatch: ONLY visible to Field Officer -->
+          <button id="nav-tab-officer" onclick="switchTab('officer')" class="hidden items-center space-x-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all text-slate-600 hover:text-slate-900">
+            <i data-lucide="hard-hat" class="w-4 h-4 text-amber-600"></i>
+            <span>Field Officer Dispatch</span>
+          </button>
+        </nav>
+
+        <!-- Right User Actions & Role Switcher -->
+        <div class="flex items-center space-x-3">
+          
+          <!-- Report Issue CTA Button -->
+          <button onclick="openReportModal()" class="flex items-center space-x-1.5 px-3.5 py-2 text-xs font-bold text-white bg-gradient-to-r from-brand-600 to-emerald-600 hover:from-brand-700 hover:to-emerald-700 rounded-lg shadow-sm shadow-brand-600/30 transition-all transform active:scale-95">
+            <i data-lucide="plus-circle" class="w-4 h-4"></i>
+            <span class="hidden sm:inline">Report Issue</span>
+          </button>
+
+          <!-- AI Settings Trigger -->
+          <button onclick="openSettingsModal()" title="AI & Gemini Configuration" class="p-2 text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors border border-slate-200">
+            <i data-lucide="sparkles" class="w-4 h-4 text-amber-500"></i>
+          </button>
+
+          <!-- Accessibility / Elder-Friendly Mode Toggle -->
+          <button id="a11yToggleBtn" onclick="toggleAccessibilityMode()" title="Large Text / Accessibility Mode (for elderly users)" class="p-2 text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors border border-slate-200">
+            <i data-lucide="eye" class="w-4 h-4 text-brand-600"></i>
+          </button>
+
+          <!-- Seamless Role Switcher Dropdown -->
+          <div class="relative">
+            <button id="roleDropdownBtn" onclick="toggleRoleMenu()" class="flex items-center space-x-2 pl-2 pr-3 py-1.5 bg-slate-100 hover:bg-slate-200/80 rounded-xl border border-slate-200 text-xs font-medium text-slate-700 transition-all">
+              <div id="roleAvatar" class="w-6 h-6 rounded-full bg-brand-600 text-white flex items-center justify-center font-bold text-[11px]">
+                AR
+              </div>
+              <div class="text-left hidden lg:block leading-tight">
+                <p id="roleUserName" class="font-bold text-slate-900 text-[11px]">Alex Rivera</p>
+                <p id="roleUserBadge" class="text-[10px] text-brand-700 font-medium">Citizen</p>
+              </div>
+              <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400"></i>
+            </button>
+
+            <!-- Role Selector Dropdown Menu -->
+            <div id="roleMenu" class="hidden absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-xl border border-slate-200 py-2 z-50 modal-enter">
+              <div class="px-3 py-1.5 border-b border-slate-100">
+                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Switch Demo Role</p>
+              </div>
+              
+              <button onclick="selectRole('CITIZEN')" class="w-full text-left px-3 py-2 flex items-center space-x-3 hover:bg-slate-50 transition-colors">
+                <div class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-xs">
+                  AR
+                </div>
+                <div>
+                  <div class="flex items-center space-x-2">
+                    <p class="text-xs font-bold text-slate-900">Alex Rivera</p>
+                    <span class="px-1.5 py-0.2 text-[9px] font-semibold bg-emerald-100 text-emerald-800 rounded">Citizen</span>
+                  </div>
+                  <p class="text-[11px] text-slate-500">Report, track, upvote & rate fixes</p>
+                </div>
+              </button>
+
+              <button onclick="selectRole('ADMIN')" class="w-full text-left px-3 py-2 flex items-center space-x-3 hover:bg-slate-50 transition-colors">
+                <div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-800 flex items-center justify-center font-bold text-xs">
+                  CD
+                </div>
+                <div>
+                  <div class="flex items-center space-x-2">
+                    <p class="text-xs font-bold text-slate-900">Commissioner Davis</p>
+                    <span class="px-1.5 py-0.2 text-[9px] font-semibold bg-indigo-100 text-indigo-800 rounded">Admin</span>
+                  </div>
+                  <p class="text-[11px] text-slate-500">Triage queue, override AI & analytics</p>
+                </div>
+              </button>
+
+              <button onclick="selectRole('FIELD_OFFICER')" class="w-full text-left px-3 py-2 flex items-center space-x-3 hover:bg-slate-50 transition-colors">
+                <div class="w-8 h-8 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-xs">
+                  MC
+                </div>
+                <div>
+                  <div class="flex items-center space-x-2">
+                    <p class="text-xs font-bold text-slate-900">Officer Marcus Chen</p>
+                    <span class="px-1.5 py-0.2 text-[9px] font-semibold bg-amber-100 text-amber-800 rounded">Field Tech</span>
+                  </div>
+                  <p class="text-[11px] text-slate-500">Work orders & upload proof photos</p>
+                </div>
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Live AI Notification Banner -->
+  <div class="bg-gradient-to-r from-brand-900 via-slate-900 to-indigo-950 text-white text-xs py-2 px-4 shadow-inner">
+    <div class="max-w-7xl mx-auto flex items-center justify-between">
+      <div class="flex items-center space-x-2.5 overflow-hidden">
+        <span class="flex h-2 w-2 relative">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+        </span>
+        <span class="font-bold tracking-wide text-emerald-400 uppercase text-[10px]">Gemini 2.5 Flash Triage Engine Active:</span>
+        <span id="aiStatusTicker" class="truncate text-slate-300">Multimodal image analysis enabled • Real-time SLA determination & hazard prioritization</span>
+      </div>
+      <div class="hidden sm:flex items-center space-x-3 text-[11px] text-slate-400 font-mono">
+        <span id="activeModelLabel" class="flex items-center space-x-1">
+          <i data-lucide="cpu" class="w-3.5 h-3.5 text-emerald-400"></i>
+          <span>Gemini 2.5 Flash</span>
+        </span>
+        <span class="text-slate-600">|</span>
+        <button onclick="resetDemoData()" class="text-amber-300 hover:text-amber-200 underline font-sans text-xs">Reset Demo Data</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MAIN CONTENT VIEWS ================= -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+    <!-- ----------------- VIEW 1: CITIZEN GRIEVANCE FEED ----------------- -->
+    <div id="view-feed" class="space-y-6">
+      
+      <!-- Hero Banner & Search -->
+      <div class="bg-gradient-to-br from-white to-slate-100/90 rounded-2xl p-6 sm:p-8 border border-slate-200/90 shadow-sm relative overflow-hidden">
+        <div class="absolute -right-12 -bottom-12 w-64 h-64 bg-brand-500/5 rounded-full pointer-events-none blur-3xl"></div>
+        <div class="max-w-2xl">
+          <span class="px-2.5 py-1 text-xs font-bold uppercase tracking-wider bg-brand-50 text-brand-700 rounded-lg border border-brand-200/60 inline-flex items-center space-x-1.5 mb-3">
+            <i data-lucide="zap" class="w-3.5 h-3.5 text-brand-600"></i>
+            <span>Next-Gen Civic Redressal</span>
+          </span>
+          <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
+            Report Civic Hazards. Track Real Progress. Powered by AI.
+          </h1>
+          <p class="mt-2 text-sm text-slate-600 leading-relaxed">
+            Report broken infrastructure with a photo and map pin. Google Gemini instantly analyzes damage severity, recommends the responsible department, and assigns urgent SLA resolution timelines.
+          </p>
+
+          <!-- Search & Filter Bar -->
+          <div class="mt-5 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+            <div class="relative flex-1">
+              <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+              <input id="searchInput" type="text" oninput="handleSearch(this.value)" placeholder="Search by road, ticket #, keyword (pothole, water leak, streetlight)..." class="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 shadow-sm">
+            </div>
+            <button onclick="openReportModal()" class="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-sm flex items-center justify-center space-x-2 transition-all transform active:scale-95">
+              <i data-lucide="camera" class="w-4 h-4"></i>
+              <span>Report Issue</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Category Filter Pills -->
+      <div class="flex items-center space-x-2 overflow-x-auto pb-2 scrollbar-none">
+        <button onclick="filterCategory('ALL')" id="filter-cat-ALL" class="cat-pill active px-3.5 py-1.5 rounded-xl text-xs font-bold border transition-all bg-slate-900 text-white border-slate-900 shadow-sm flex items-center space-x-1.5 whitespace-nowrap">
+          <span>All Categories</span>
+        </button>
+        <button onclick="filterCategory('ROADS_BRIDGES')" id="filter-cat-ROADS_BRIDGES" class="cat-pill px-3.5 py-1.5 rounded-xl text-xs font-semibold border transition-all bg-white text-slate-700 border-slate-200 hover:bg-slate-50 flex items-center space-x-1.5 whitespace-nowrap">
+          <span>🛣️ Roads & Bridges</span>
+        </button>
+        <button onclick="filterCategory('SANITATION_WASTE')" id="filter-cat-SANITATION_WASTE" class="cat-pill px-3.5 py-1.5 rounded-xl text-xs font-semibold border transition-all bg-white text-slate-700 border-slate-200 hover:bg-slate-50 flex items-center space-x-1.5 whitespace-nowrap">
+          <span>🗑️ Sanitation & Waste</span>
+        </button>
+        <button onclick="filterCategory('WATER_SEWERAGE')" id="filter-cat-WATER_SEWERAGE" class="cat-pill px-3.5 py-1.5 rounded-xl text-xs font-semibold border transition-all bg-white text-slate-700 border-slate-200 hover:bg-slate-50 flex items-center space-x-1.5 whitespace-nowrap">
+          <span>💧 Water & Sewerage</span>
+        </button>
+        <button onclick="filterCategory('ELECTRICAL_LIGHTING')" id="filter-cat-ELECTRICAL_LIGHTING" class="cat-pill px-3.5 py-1.5 rounded-xl text-xs font-semibold border transition-all bg-white text-slate-700 border-slate-200 hover:bg-slate-50 flex items-center space-x-1.5 whitespace-nowrap">
+          <span>⚡ Power & Streetlights</span>
+        </button>
+        <button onclick="filterCategory('PUBLIC_SAFETY')" id="filter-cat-PUBLIC_SAFETY" class="cat-pill px-3.5 py-1.5 rounded-xl text-xs font-semibold border transition-all bg-white text-slate-700 border-slate-200 hover:bg-slate-50 flex items-center space-x-1.5 whitespace-nowrap">
+          <span>🚨 Public Safety</span>
+        </button>
+        <button onclick="filterCategory('PARKS_RECREATION')" id="filter-cat-PARKS_RECREATION" class="cat-pill px-3.5 py-1.5 rounded-xl text-xs font-semibold border transition-all bg-white text-slate-700 border-slate-200 hover:bg-slate-50 flex items-center space-x-1.5 whitespace-nowrap">
+          <span>🌳 Parks & Forestry</span>
+        </button>
+      </div>
+
+      <!-- Secondary Filters: Urgency and Status -->
+      <div class="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200 text-xs">
+        <div class="flex items-center space-x-2">
+          <span class="font-bold text-slate-500">Urgency:</span>
+          <select id="urgencyFilterSelect" onchange="filterUrgency(this.value)" class="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 font-semibold focus:outline-none focus:ring-1 focus:ring-brand-500">
+            <option value="ALL">All Urgencies</option>
+            <option value="CRITICAL">🔴 Critical Only</option>
+            <option value="HIGH">🟠 High Urgency</option>
+            <option value="MEDIUM">🟡 Medium</option>
+            <option value="LOW">🔵 Low</option>
+          </select>
+        </div>
+
+        <div class="flex items-center space-x-1 bg-slate-100 p-1 rounded-lg">
+          <button onclick="filterStatus('ALL')" id="status-btn-ALL" class="status-btn px-2.5 py-1 rounded text-xs font-bold bg-white text-slate-800 shadow-xs">All</button>
+          <button onclick="filterStatus('REPORTED')" id="status-btn-REPORTED" class="status-btn px-2.5 py-1 rounded text-xs font-medium text-slate-600 hover:text-slate-900">Reported</button>
+          <button onclick="filterStatus('TRIAGED')" id="status-btn-TRIAGED" class="status-btn px-2.5 py-1 rounded text-xs font-medium text-slate-600 hover:text-slate-900">Triaged</button>
+          <button onclick="filterStatus('IN_PROGRESS')" id="status-btn-IN_PROGRESS" class="status-btn px-2.5 py-1 rounded text-xs font-medium text-slate-600 hover:text-slate-900">In Progress</button>
+          <button onclick="filterStatus('RESOLVED')" id="status-btn-RESOLVED" class="status-btn px-2.5 py-1 rounded text-xs font-medium text-slate-600 hover:text-slate-900">Resolved</button>
+        </div>
+
+        <div class="text-slate-500 font-medium">
+          Showing <span id="issuesCountDisplay" class="font-bold text-slate-900">8</span> civic complaints
+        </div>
+      </div>
+
+      <!-- Grievance Cards Grid -->
+      <div id="grievanceCardsContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <!-- Rendered dynamically by app.js -->
+      </div>
+    </div>
+
+    <!-- ----------------- VIEW 2: INTERACTIVE CITY MAP EXPLORER ----------------- -->
+    <div id="view-map" class="hidden space-y-4">
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-lg font-extrabold text-slate-900 flex items-center space-x-2">
+            <i data-lucide="map" class="w-5 h-5 text-brand-600"></i>
+            <span>Metropolitan Civic Issue Dispatch Map</span>
+          </h2>
+          <p class="text-xs text-slate-500">Live geospatial clustering with real-time urgency heat-pins and department assignments.</p>
+        </div>
+
+        <!-- Urgency Legend Pills -->
+        <div class="flex items-center space-x-2 text-[11px] font-semibold">
+          <span class="flex items-center space-x-1 px-2 py-0.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-md">
+            <span class="w-2 h-2 rounded-full bg-rose-600 animate-pulse"></span>
+            <span>Critical</span>
+          </span>
+          <span class="flex items-center space-x-1 px-2 py-0.5 bg-amber-50 border border-amber-200 text-amber-700 rounded-md">
+            <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+            <span>High</span>
+          </span>
+          <span class="flex items-center space-x-1 px-2 py-0.5 bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-md">
+            <span class="w-2 h-2 rounded-full bg-yellow-500"></span>
+            <span>Medium</span>
+          </span>
+          <span class="flex items-center space-x-1 px-2 py-0.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-md">
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span>Resolved</span>
+          </span>
+        </div>
+      </div>
+
+      <!-- Map Viewport Container -->
+      <div class="relative w-full h-[650px] rounded-2xl overflow-hidden border border-slate-300 shadow-md">
+        <div id="cityMap" class="w-full h-full z-10"></div>
+      </div>
+    </div>
+
+    <!-- ----------------- VIEW 3: ADMIN COMMAND CENTER ----------------- -->
+    <div id="view-admin" class="hidden space-y-6">
+      
+      <!-- Admin Header -->
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900 text-white p-6 rounded-2xl shadow-md">
+        <div>
+          <div class="flex items-center space-x-2">
+            <span class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-indigo-500 text-white rounded">Municipal Administration</span>
+            <span class="text-slate-400 text-xs font-mono">Triage Console v2.5</span>
+          </div>
+          <h2 class="text-xl sm:text-2xl font-extrabold tracking-tight mt-1">Citywide Grievance Analytics & AI Triage Dispatch</h2>
+          <p class="text-xs text-slate-400 mt-1">Review AI model confidence, override triage recommendations, and dispatch field engineering teams.</p>
+        </div>
+
+        <div class="flex items-center space-x-3">
+          <button onclick="resetDemoData()" class="px-3.5 py-2 text-xs font-bold text-slate-200 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl transition-all">
+            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5 inline mr-1"></i> Reset Demo Data
+          </button>
+          <button onclick="openSettingsModal()" class="px-3.5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-all shadow-sm">
+            <i data-lucide="sliders" class="w-3.5 h-3.5 inline mr-1"></i> Gemini Settings
+          </button>
+        </div>
+      </div>
+
+      <!-- KPI Summary Cards -->
+      <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+          <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Total Grievances</p>
+          <h3 id="statTotalIssues" class="text-2xl font-black text-slate-900 mt-1">8</h3>
+          <p class="text-[11px] text-slate-400 mt-1 flex items-center">
+            <i data-lucide="inbox" class="w-3 h-3 text-slate-400 mr-1"></i> All Municipal Sectors
+          </p>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border border-rose-200 bg-rose-50/20 shadow-xs">
+          <p class="text-xs font-semibold text-rose-600 uppercase tracking-wide">Critical Hazards</p>
+          <h3 id="statCriticalIssues" class="text-2xl font-black text-rose-600 mt-1">2</h3>
+          <p class="text-[11px] text-rose-500 mt-1 flex items-center">
+            <i data-lucide="alert-triangle" class="w-3 h-3 mr-1"></i> Emergency Protocols
+          </p>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border border-amber-200 bg-amber-50/20 shadow-xs">
+          <p class="text-xs font-semibold text-amber-600 uppercase tracking-wide">In Progress</p>
+          <h3 id="statInProgressIssues" class="text-2xl font-black text-amber-600 mt-1">4</h3>
+          <p class="text-[11px] text-amber-500 mt-1 flex items-center">
+            <i data-lucide="clock" class="w-3 h-3 mr-1"></i> Crews On Site
+          </p>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border border-emerald-200 bg-emerald-50/20 shadow-xs">
+          <p class="text-xs font-semibold text-emerald-600 uppercase tracking-wide">Resolution Rate</p>
+          <h3 id="statResolutionRate" class="text-2xl font-black text-emerald-600 mt-1">12%</h3>
+          <p class="text-[11px] text-emerald-600 mt-1 flex items-center">
+            <i data-lucide="check-circle" class="w-3 h-3 mr-1"></i> 1 Resolved / Verified
+          </p>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs col-span-2 lg:col-span-1">
+          <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Target Turnaround</p>
+          <h3 class="text-2xl font-black text-slate-900 mt-1">18 hrs</h3>
+          <p class="text-[11px] text-brand-600 mt-1 flex items-center">
+            <i data-lucide="trending-down" class="w-3 h-3 mr-1"></i> Within Gemini SLA
+          </p>
+        </div>
+      </div>
+
+      <!-- Department Workload Breakdown -->
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+        <h3 class="text-sm font-bold text-slate-900 mb-3 flex items-center space-x-2">
+          <i data-lucide="building-2" class="w-4 h-4 text-brand-600"></i>
+          <span>Municipal Department Workload Distribution</span>
+        </h3>
+        <div id="deptWorkloadContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+
+      <!-- Admin Triage Table -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+        <div class="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+          <h3 class="text-sm font-bold text-slate-900">Incoming Triage Queue</h3>
+          <span class="text-xs text-slate-500">Click any row to open Triage Inspector</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-100 text-slate-600 uppercase font-bold text-[10px] tracking-wider border-b border-slate-200">
+              <tr>
+                <th class="py-3 px-4">Ticket</th>
+                <th class="py-3 px-4">Grievance & Location</th>
+                <th class="py-3 px-4">AI Category</th>
+                <th class="py-3 px-4">Urgency</th>
+                <th class="py-3 px-4">Assigned Department</th>
+                <th class="py-3 px-4">Status</th>
+                <th class="py-3 px-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="adminTableBody" class="divide-y divide-slate-100">
+              <!-- Rendered dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ----------------- VIEW 4: FIELD OFFICER DISPATCH PORTAL ----------------- -->
+    <div id="view-officer" class="hidden space-y-6">
+      
+      <!-- Field Officer Badge Header -->
+      <div class="bg-gradient-to-r from-amber-600 to-amber-700 text-white p-6 rounded-2xl shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div class="flex items-center space-x-4">
+          <div class="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white border border-white/30 text-2xl font-bold">
+            MC
+          </div>
+          <div>
+            <div class="flex items-center space-x-2">
+              <span class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-black/20 rounded">Field Operations Portal</span>
+              <span class="text-amber-200 text-xs font-mono">Badge: DPW-774</span>
+            </div>
+            <h2 class="text-xl sm:text-2xl font-extrabold tracking-tight mt-1">Officer Marcus Chen</h2>
+            <p class="text-xs text-amber-100">Department of Public Works • Road & Rapid Structural Maintenance Unit</p>
+          </div>
+        </div>
+
+        <div class="flex items-center space-x-2">
+          <span class="px-3 py-1.5 bg-black/30 rounded-xl text-xs font-bold text-white flex items-center space-x-1.5">
+            <i data-lucide="radio" class="w-3.5 h-3.5 text-emerald-400 animate-pulse"></i>
+            <span>Unit On Active Duty</span>
+          </span>
+        </div>
+      </div>
+
+      <!-- Assigned Work Orders -->
+      <div class="space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-base font-extrabold text-slate-900 flex items-center space-x-2">
+            <i data-lucide="clipboard-list" class="w-5 h-5 text-amber-600"></i>
+            <span>Assigned Municipal Work Orders</span>
+          </h3>
+          <span class="text-xs font-medium text-slate-500">Filter: Public Works Dispatch Queue</span>
+        </div>
+
+        <div id="fieldOrdersContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ================= MODALS ================= -->
+
+  <!-- 1. REPORT ISSUE MODAL -->
+  <div id="reportModal" onclick="if (event.target === this) closeReportModal()" class="hidden modal-overlay fixed inset-0 z-[10000] bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-hidden">
+    <div class="modal-dialog-card relative bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-slate-200 modal-enter overflow-hidden">
+      
+      <!-- Pinned Sticky Modal Header (Always Visible at Top) -->
+      <div class="sticky top-0 z-30 bg-white/95 backdrop-blur-md px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+        <div>
+          <div class="flex items-center space-x-2">
+            <span class="px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-brand-100 text-brand-800 rounded-md">Smart Grievance Entry</span>
+            <span class="text-xs text-slate-400">• New Complaint</span>
+          </div>
+          <h3 class="text-lg sm:text-xl font-black text-slate-900 mt-0.5">Report a Civic Infrastructure Issue</h3>
+        </div>
+        
+        <!-- Pinned Close button (Never scrolls off-screen) -->
+        <button type="button" onclick="closeReportModal()" title="Close (Esc)" class="p-2 text-slate-500 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-full transition-all shrink-0">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Scrollable Form Body -->
+      <form id="reportForm" onsubmit="submitReportForm(event)" class="overflow-y-auto px-6 py-5 space-y-4 flex-1">
+        
+        <!-- STEP 1: Photo Upload with Instant AI Auto-Fill -->
+        <div class="p-4 bg-gradient-to-br from-indigo-50/60 to-brand-50/50 rounded-2xl border border-indigo-200/80 space-y-3">
+          <div class="flex items-center justify-between">
+            <label class="text-xs font-bold text-slate-800 flex items-center space-x-1.5">
+              <i data-lucide="camera" class="w-4 h-4 text-brand-600"></i>
+              <span>1. Attach Photo (Camera / Upload to Auto-Fill)</span>
+            </label>
+            <span class="text-[10px] font-bold text-indigo-700 bg-indigo-100/70 px-2 py-0.5 rounded-md flex items-center space-x-1">
+              <i data-lucide="sparkles" class="w-3 h-3 text-amber-500"></i>
+              <span>AI Auto-Fills Details</span>
+            </span>
+          </div>
+
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <input id="reportImageInput" type="file" accept="image/*" onchange="handleImageSelection(event)" class="text-xs text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-brand-600 file:text-white hover:file:bg-brand-700 cursor-pointer">
+            
+            <!-- Quick Preset Samples for instant testing -->
+            <div class="flex items-center space-x-1 text-[11px] text-slate-600">
+              <span class="text-slate-400 font-medium">Quick presets:</span>
+              <button type="button" onclick="loadSampleImage('pothole')" class="px-2.5 py-1 bg-white border border-slate-200 hover:border-brand-300 rounded-lg text-slate-700 hover:bg-brand-50 font-semibold shadow-2xs">Pothole</button>
+              <button type="button" onclick="loadSampleImage('water')" class="px-2.5 py-1 bg-white border border-slate-200 hover:border-brand-300 rounded-lg text-slate-700 hover:bg-brand-50 font-semibold shadow-2xs">Water Pipe</button>
+              <button type="button" onclick="loadSampleImage('wire')" class="px-2.5 py-1 bg-white border border-slate-200 hover:border-brand-300 rounded-lg text-slate-700 hover:bg-brand-50 font-semibold shadow-2xs">Live Wire</button>
+            </div>
+          </div>
+
+          <!-- Preview & AI Auto-Fill Status -->
+          <div id="imagePreviewContainer" class="hidden flex items-center space-x-4 pt-2">
+            <img id="imagePreviewImg" src="" alt="Damage Preview" class="w-20 h-20 rounded-xl object-cover border border-slate-300 shadow-xs">
+            <div class="flex-1">
+              <p id="imageStatusHeading" class="text-xs font-bold text-slate-900 flex items-center space-x-1">
+                <span>Photo attached successfully</span>
+              </p>
+              <p id="imageStatusSubtext" class="text-[11px] text-slate-500">
+                ✨ Gemini AI has analyzed the damage and auto-filled title & description below.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 2: Title & Description (Editable with AI auto-fill indicator) -->
+        <div class="space-y-3">
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide">Issue Title *</label>
+              <span id="titleAiBadge" class="hidden text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md flex items-center space-x-1">
+                <i data-lucide="check" class="w-3 h-3 text-emerald-600"></i>
+                <span>Auto-filled by AI • Editable</span>
+              </span>
+            </div>
+            <input id="reportTitle" required type="text" placeholder="Upload a photo above to auto-fill, or enter title..." class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500">
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide">Description & Details *</label>
+              <span id="descAiBadge" class="hidden text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md flex items-center space-x-1">
+                <i data-lucide="check" class="w-3 h-3 text-emerald-600"></i>
+                <span>Auto-filled by AI • Editable</span>
+              </span>
+            </div>
+            <textarea id="reportDescription" required rows="3" placeholder="Upload a photo above to auto-fill, or describe the hazard..." class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"></textarea>
+          </div>
+
+          <!-- Re-analyze button -->
+          <div class="pt-1 flex items-center justify-between">
+            <button id="aiTriageBtn" type="button" onclick="runAiTriagePreview()" class="py-2 px-3.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-xl border border-indigo-200 flex items-center space-x-1.5 transition-all">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-500"></i>
+              <span id="aiTriageBtnText">Re-Analyze with Google Gemini</span>
+            </button>
+            <span class="text-[11px] text-slate-400">Feel free to edit any text before submitting</span>
+          </div>
+
+          <!-- Real-Time AI Prediction Card (Populated after AI runs) -->
+          <div id="aiPredictionCard" class="hidden p-3.5 bg-white rounded-xl border border-indigo-200 shadow-sm space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-indigo-700 flex items-center space-x-1">
+                <i data-lucide="bot" class="w-3.5 h-3.5"></i>
+                <span>Gemini 2.5 Flash Triage Output</span>
+              </span>
+              <span id="aiConfidenceBadge" class="px-2 py-0.5 text-[10px] font-bold bg-indigo-50 text-indigo-800 rounded-md">98% Confidence</span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <div class="bg-slate-50 p-2 rounded-lg">
+                <p class="text-[10px] text-slate-400 font-bold uppercase">Predicted Category</p>
+                <p id="aiPredictedCategory" class="font-bold text-slate-800">Roads & Bridges</p>
+              </div>
+              <div class="bg-slate-50 p-2 rounded-lg">
+                <p class="text-[10px] text-slate-400 font-bold uppercase">Evaluated Urgency</p>
+                <p id="aiPredictedUrgency" class="font-bold text-rose-600">CRITICAL (Score: 9/10)</p>
+              </div>
+              <div class="bg-slate-50 p-2 rounded-lg">
+                <p class="text-[10px] text-slate-400 font-bold uppercase">Routing Department</p>
+                <p id="aiPredictedDept" class="font-bold text-slate-800">Dept of Public Works</p>
+              </div>
+              <div class="bg-slate-50 p-2 rounded-lg">
+                <p class="text-[10px] text-slate-400 font-bold uppercase">Assigned SLA</p>
+                <p id="aiPredictedSla" class="font-bold text-brand-600">6 - 12 Hours</p>
+              </div>
+            </div>
+
+            <p id="aiReasoningText" class="text-[11px] text-slate-600 bg-indigo-50/50 p-2 rounded-lg border border-indigo-100 italic">
+              "Visual inspection confirmed severe asphalt fracture risking vehicle entrapment."
+            </p>
+          </div>
+        </div>
+
+        <!-- STEP 3: Location & Interactive Pinning -->
+        <div class="space-y-2 pt-2 border-t border-slate-100">
+          <div class="flex items-center justify-between">
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide">3. Location & Map Pin *</label>
+            <button type="button" onclick="detectCurrentLocation()" class="text-xs font-bold text-brand-600 hover:text-brand-700 flex items-center space-x-1">
+              <i data-lucide="crosshair" class="w-3.5 h-3.5"></i>
+              <span>Use Current GPS</span>
+            </button>
+          </div>
+
+          <input id="reportAddress" required type="text" placeholder="Street address or click pin on map below..." class="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-500">
+
+          <!-- Mini Map for Pinning (Contained with z-index isolation) -->
+          <div class="relative w-full h-44 rounded-xl overflow-hidden border border-slate-300">
+            <div id="reportMiniMap" class="w-full h-full"></div>
+            <div class="absolute bottom-2 left-2 z-[25] bg-white/90 backdrop-blur-xs px-2 py-1 rounded text-[10px] font-medium text-slate-600 shadow">
+              Click anywhere on map to reposition pin
+            </div>
+          </div>
+
+          <!-- Quick Select Civic Presets -->
+          <div class="flex items-center space-x-1.5 overflow-x-auto text-[11px] pt-1">
+            <span class="text-slate-400 font-medium">Quick landmarks:</span>
+            <button type="button" onclick="setPresetLocation(37.7749, -122.4194, 'Central Metro Transit Hub, Market St')" class="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 whitespace-nowrap">Metro Station</button>
+            <button type="button" onclick="setPresetLocation(37.7833, -122.4167, 'Elm Avenue & 4th Street')" class="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 whitespace-nowrap">Elm & 4th</button>
+            <button type="button" onclick="setPresetLocation(37.7699, -122.4467, 'Buena Vista Park North Playground')" class="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 whitespace-nowrap">Buena Vista Park</button>
+          </div>
+        </div>
+
+        <!-- Sticky Submit Footer -->
+        <div class="sticky bottom-0 bg-white/95 backdrop-blur-md pt-3 pb-2 border-t border-slate-100 flex items-center justify-end space-x-3 mt-4">
+          <button type="button" onclick="closeReportModal()" class="px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">
+            Cancel
+          </button>
+          <button id="submitComplaintBtn" type="submit" class="px-6 py-2.5 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-md shadow-brand-600/20 transition-all flex items-center space-x-2">
+            <i data-lucide="send" class="w-4 h-4"></i>
+            <span>Submit Civic Complaint</span>
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+
+  <!-- 2. ISSUE DETAIL & 5-STAGE LIFECYCLE MODAL -->
+  <div id="detailModal" onclick="if (event.target === this) closeDetailModal()" class="hidden modal-overlay fixed inset-0 z-[10000] bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-hidden">
+    <div class="modal-dialog-card relative bg-white rounded-3xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-slate-200 modal-enter overflow-hidden">
+      
+      <!-- Sticky Pinned Header (Always Visible) -->
+      <div class="sticky top-0 z-30 bg-white/95 backdrop-blur-md px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+        <div>
+          <span class="px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 rounded-md">Grievance Audit & Tracking</span>
+          <h3 class="text-base sm:text-lg font-black text-slate-900 mt-0.5">Complaint Lifecycle Inspector</h3>
+        </div>
+        <button type="button" onclick="closeDetailModal()" title="Close (Esc)" class="p-2 text-slate-500 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-full transition-all shrink-0">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Scrollable Detail Content -->
+      <div id="detailModalContent" class="overflow-y-auto px-6 py-5 space-y-5 flex-1">
+        <!-- Rendered dynamically by app.js -->
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 3. AI SETTINGS & CONFIGURATION MODAL -->
+  <div id="settingsModal" onclick="if (event.target === this) closeSettingsModal()" class="hidden modal-overlay fixed inset-0 z-[10000] bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-hidden">
+    <div class="modal-dialog-card relative bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-200 modal-enter overflow-hidden">
+      
+      <div class="bg-white px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
+            <i data-lucide="sparkles" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-extrabold text-slate-900">Google Gemini AI Settings</h3>
+            <p class="text-[11px] text-slate-500">Configure API Key & Model</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeSettingsModal()" title="Close (Esc)" class="p-2 text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-full transition-colors">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="p-6 space-y-4">
+        <!-- Direct Quick Link to Google AI Studio -->
+        <div class="p-3 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl text-xs space-y-1.5">
+          <div class="flex items-center justify-between font-bold text-amber-900">
+            <span class="flex items-center space-x-1">
+              <span>⚡</span>
+              <span>Need a free Google Gemini API key?</span>
+            </span>
+            <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" class="text-brand-700 hover:text-brand-900 font-extrabold underline flex items-center space-x-0.5">
+              <span>Get Free Key (30s)</span>
+              <i data-lucide="external-link" class="w-3 h-3 inline"></i>
+            </a>
+          </div>
+          <p class="text-[11px] text-amber-800 leading-relaxed">
+            1. Go to <a href="https://aistudio.google.com/apikey" target="_blank" class="underline font-bold text-brand-800">Google AI Studio</a> and sign in with your Google account.<br>
+            2. Click <strong>"Create API Key"</strong> (free tier includes Gemini 2.5 Flash).<br>
+            3. Paste the key below and click <strong>Save Key</strong>.
+          </p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Google Gemini API Key</label>
+          <input id="settingsApiKeyInput" type="password" placeholder="AIzaSy..." class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500">
+          <p class="text-[11px] text-slate-500 mt-1">Leave empty to use high-fidelity offline heuristic simulation.</p>
+        </div>
+
+        <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5 text-xs">
+          <div class="flex items-center justify-between">
+            <span class="text-slate-500">Active Model:</span>
+            <span class="font-bold text-slate-800">gemini-2.5-flash</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-slate-500">Current Key Status:</span>
+            <span id="settingsCurrentKeyPreview" class="font-mono text-slate-700">Checking...</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-slate-500">Multimodal Vision:</span>
+            <span class="text-emerald-600 font-bold">Enabled</span>
+          </div>
+        </div>
+
+        <div class="pt-2 flex items-center justify-end space-x-2">
+          <button onclick="closeSettingsModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl">
+            Cancel
+          </button>
+          <button onclick="saveApiKeySettings()" class="px-5 py-2 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-sm">
+            Save Key
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Toast Notification Popups Container -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-[9999] flex flex-col space-y-2 pointer-events-none"></div>
+
+  <!-- Main Application Logic -->
+  <script src="/app.js"></script>
+</body>
+</html>

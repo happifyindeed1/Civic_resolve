@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: civicresolve
+    runtime: node
+    plan: free
+    buildCommand: ""
+    startCommand: "node src/server.js"
+    envVars:
+      - key: PORT
+        value: 3000
+      - key: GEMINI_API_KEY
+        sync: false

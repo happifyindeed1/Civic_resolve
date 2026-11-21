@@ -1,0 +1,21 @@
+{
+  "name": "civic-resolve",
+  "version": "1.0.0",
+  "description": "CivicResolve: AI-Powered Citizen Grievance Management and Resolution Platform",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node src/server.js"
+  },
+  "keywords": [
+    "civic-tech",
+    "ai-triage",
+    "gemini",
+    "multimodal",
+    "grievance-redressal",
+    "smart-city"
+  ],
+  "author": "Google Antigravity & Team",
+  "license": "MIT"
+}
